@@ -1,6 +1,6 @@
 module.exports = {
     entry:{
-        main:'./main.js'
+        main:'./final-toe.js'
     },
     mode:"development",
     module:{
