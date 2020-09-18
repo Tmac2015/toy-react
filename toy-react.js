@@ -1,7 +1,7 @@
 const RENDER_TO_DOM = Symbol("render to dom");
 
 export class Component {
-    constructor( ) {
+    constructor() {
         this.props = Object.create(null);
         this.children = [];
         this._root = null;
@@ -58,6 +58,11 @@ export class Component {
 
             let newChildren = newNode.vchildren;
             let oldChildren = oldNode.vchildren;
+            if (!newChildren || !newChildren.length) {
+                return;
+            }
+
+            let tailRange = oldChildren[oldChildren.length -1]._range;
 
             for (let i =0;i<newChildren.length;i++) {
 
@@ -68,20 +73,18 @@ export class Component {
                     update(oldChild,newChild)
                 }else {
                     // TODO
+                    let range = document.createRange();
+                    range.setStart(tailRange.endContanier,tailRange.endOffset);
+                    range.setEnd(tailRange.endContanier,tailRange.endOffset);
+                    newChild[RENDER_TO_DOM](range);
+                    tailRange = range;
+
                 }
             }
-
-
-
-
-
-
-
-
-
         }
         let vdom = this.vdom;
-        update(this._vdom,this.vdom);
+        update(this._vdom, vdom);
+        // update(this._vdom,this.vdom);
         this._vdom = vdom;
     }
     setState(newState) {
@@ -144,9 +147,9 @@ class ElementWrapper extends Component {
     //     // this.root.appendChild(component.root)
     // }
     get vdom () {
-        if (!this.vchildren) {
+        // if (!this.vchildren) {
             this.vchildren =this.children.map(child => child.vdom)
-        }
+        // }
        
         return this;
         // return {
@@ -159,7 +162,7 @@ class ElementWrapper extends Component {
     [RENDER_TO_DOM](range) {
         // this.render()[RENDER_TO_DOM](range);
         this._range = range;
-        range.deleteContents();
+        // range.deleteContents();
         let root = document.createElement(this.type);
 
         for (let name in this.props) {
@@ -177,15 +180,18 @@ class ElementWrapper extends Component {
     
             }
         }
+        if (!this.vchildren)
+            this.vchildren = this.children.map(child => child.vdom);
 
-        for (let child of this.children) {
-            let childerange = document.createRange();
-                childerange.setStart(root,root.childNodes.length);
-                childerange.setEnd(root,root.childNodes.length);
-                child[RENDER_TO_DOM](childerange);
+        for (let child of this.vchildren) {
+            let childRange = document.createRange();
+                childRange.setStart(root, root.childNodes.length);
+                childRange.setEnd(root, root.childNodes.length);
+                child[RENDER_TO_DOM](childRange);
         }
 
-        range.insertNode(root)
+        // range.insertNode(range,root)
+        replaceContent(range, root)
     }
 }
 
@@ -194,7 +200,7 @@ class TextWapper  extends Component {
         super(content);
         this.type="#text";
         this.content = content;
-        this.root = document.createTextNode(content);
+        // this.root = document.createTextNode(content);
     }
     get vdom() {
         return this;
@@ -205,15 +211,22 @@ class TextWapper  extends Component {
     }
     [RENDER_TO_DOM](range) {
         this._range = range;
-        range.deleteContents();
-        range.insertNode(this.root)
+        // range.deleteContents();
+        let root  = document.createTextNode(this.content);
+        replaceContent(range, root);
+        // range.insertNode(this.root)
     }
    
 }
  
 
-function replaceContent(range,node) {
-    
+function replaceContent(range, node) {
+    range.insertNode(node);
+    range.setStartAfter(node);
+    range.deleteContents();
+
+    range.setStartBefore(node);
+    range.setEndAfter(node);
 }
 
 export function createElement(type,attributes,...children) {
@@ -230,7 +243,7 @@ export function createElement(type,attributes,...children) {
     let insertchildren = (children) => {
         for (let child of children) {
             if (typeof child === "string") {
-                child=new TextWapper(child)
+                child=new TextWapper(child);
             }
             if (  child === null) {
                 continue;
